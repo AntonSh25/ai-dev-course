@@ -8,6 +8,16 @@ from openai import OpenAI
 
 BASE_URL = "https://api.proxyapi.ru/openai/v1"
 MODEL = "gpt-4.1"
+TEMPERATURE = 0.2
+MAX_OUTPUT_TOKENS = 80
+
+SYSTEM_INSTRUCTION = (
+    "Ты помогаешь оператору службы поддержки. "
+    "Кратко пересказывай обращение одним предложением. "
+    "Используй только факты из обращения. "
+    "Не придумывай суммы, даты, причины и действия. "
+    "Если данных недостаточно, прямо сообщай об этом."
+)
 
 def print_usage(usage) -> None:
     if usage is None:
@@ -17,6 +27,17 @@ def print_usage(usage) -> None:
     print(f"Выходные токены: {usage.completion_tokens}")
     print(f"Всего токенов: {usage.total_tokens}")
     
+def build_messages(user_text: str) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": SYSTEM_INSTRUCTION,
+        },
+        {
+            "role": "user",
+            "content": f"Обращение:\n{user_text}",
+        },
+    ]
 
 def summarize_request(client: OpenAI, user_text: str) -> None:
     """Кратко пересказывает обращение и печатает метрики запроса."""
@@ -30,17 +51,10 @@ def summarize_request(client: OpenAI, user_text: str) -> None:
     try:
         response = client.chat.completions.create(
             model=MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Сформулируй краткое содержание обращения в одном "
-                        "предложении. Не добавляй факты, которых нет в тексте.\n\n"
-                        f"Обращение: {text}"
-                    ),
-                }
-            ],
-        )
+            messages=build_messages(text),
+            temperature=TEMPERATURE,
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
+            )
     except openai.AuthenticationError:
         print("Ошибка авторизации: проверьте LLM_API_KEY.")
         return
