@@ -39,6 +39,18 @@ def build_messages(user_text: str) -> list[dict[str, str]]:
         },
     ]
 
+def validate_summary(summary: str | None) -> str:
+    if summary is None:
+        raise ValueError("Модель не вернула текст")
+
+    cleaned = summary.strip()
+    if not cleaned:
+        raise ValueError("Модель вернула пустой ответ")
+    if len(cleaned) > 300:
+        raise ValueError("Резюме получилось слишком длинным")
+
+    return cleaned
+
 def summarize_request(client: OpenAI, user_text: str) -> None:
     """Кратко пересказывает обращение и печатает метрики запроса."""
     text = user_text.strip()
@@ -81,10 +93,28 @@ def summarize_request(client: OpenAI, user_text: str) -> None:
 
     elapsed_seconds = perf_counter() - started_at
     choice = response.choices[0]
-    answer = choice.message.content
+    if choice.finish_reason == "length":
+        print(
+            "Ответ модели остановлен из-за ограничения длины. "
+            "Увеличьте MAX_OUTPUT_TOKENS или сократите задачу."
+        )
+        return
+
+    if choice.finish_reason != "stop":
+        print(
+            "Модель не вернула готовое резюме. "
+            f"Причина завершения: {choice.finish_reason}."
+        )
+        return
+    
+    try:
+        answer = validate_summary(choice.message.content)
+    except ValueError as error:
+        print(f"Некорректный ответ модели: {error}")
+        return
 
     print("\nРезультат:")
-    print(answer or "Модель не вернула текстовый ответ")
+    print(answer)
 
     print("\nМетрики:")
     print(f"Модель: {response.model}")

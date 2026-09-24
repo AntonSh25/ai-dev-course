@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .env
 tasks.py
+compare_models.py
